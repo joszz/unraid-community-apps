@@ -1,24 +1,15 @@
 <CommunityApplications>
-  <!-- Required profile -->
   <Profile>
-    Describe what users will find in this repository, which apps or plugins you maintain, and where they should go for support.  Markdown supported
+    Apps by Jos Nienhuis.
+
+    ## GarageStack
+    An open-source vehicle monitoring dashboard for MG / SAIC electric and plug-in hybrid vehicles.
+    Connects to the MG iSmart cloud via the SAIC MQTT Gateway and stores all data locally.
+    Features include a live dashboard, charging and efficiency statistics, trip history with heatmap
+    visualisation, and Web Push notifications. Everything runs in a single container.
+
+    For support and bug reports visit the [GitHub issues page](https://github.com/joszz/garagestack/issues).
   </Profile>
-  <!-- Optional icon -->
-  <Icon>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/icon.svg</Icon>
-  <!-- Optional web page -->
-  <WebPage>https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME</WebPage>
-  <!-- Optional support and donation links -->
-  <Forum>https://forums.unraid.net/topic/YOUR_SUPPORT_TOPIC</Forum>
-  <!-- Optional Discord link -->
-  <Discord>https://discord.gg/YOUR_INVITE_CODE</Discord>
-  <!-- Optional donation link -->
-  <DonateLink>https://github.com/sponsors/YOUR_GITHUB_USERNAME</DonateLink>
-  <!-- Optional donation text -->
-  <DonateText>Support this project</DonateText>
-  <!-- Optional photos -->
-  <Photo>URL to any photos</Photo>
-  <!-- You can add multiple photos by adding multiple <Photo> tags -->
-  <!-- Optional videos -->
-  <Video>URL to any video.  Youtube URLs are recommended</Video>
-  <!-- You can add multiple videos by adding multiple <Video> tags -->
+  <Icon>https://raw.githubusercontent.com/joszz/garagestack/main/frontend/public/pwa-192x192.png</Icon>
+  <WebPage>https://github.com/joszz/garagestack</WebPage>
 </CommunityApplications>
