@@ -1,5 +1,11 @@
 <?xml version="1.0"?>
 <Container version="2">
+  <!-- This template exists twice: unraid/garagestack.xml in joszz/garagestack, and
+       templates/garagestack.xml in joszz/unraid-community-apps, the copy Community Apps installs
+       from. Change the first, then copy it over the second in the same sitting, keeping only that
+       copy's own TemplateURL. See "Unraid Community Apps" in joszz/garagestack's
+       documentation/RELEASING.md. -->
+
   <Name>GarageStack</Name>
   <Repository>ghcr.io/joszz/garagestack:latest</Repository>
   <Registry>https://ghcr.io/</Registry>
@@ -10,11 +16,12 @@
   <Support>https://github.com/joszz/garagestack/issues</Support>
   <Project>https://github.com/joszz/garagestack</Project>
   <Overview>
-    GarageStack is an open-source vehicle monitoring dashboard for MG / SAIC electric and plug-in hybrid vehicles.
+    GarageStack is an open-source vehicle monitoring dashboard for MG / SAIC electric, plug-in hybrid, and hybrid vehicles.
     It connects to the MG iSmart cloud via the SAIC MQTT Gateway and stores all data locally in an embedded
-    PostgreSQL database. Features include a live dashboard, charging and efficiency statistics, trip history
-    with heatmap visualisation, and Web Push notifications. Everything runs in a single container -- no
-    external database or MQTT broker required.
+    PostgreSQL database. Features include: live dashboard, energy and efficiency statistics, trip history with
+    heatmap visualisation, EV charging station overlay (requires free OCM API key), fuel station and motorway
+    service area overlays (OpenStreetMap, no key required), Web Push notifications, and a Homepage dashboard widget.
+    Everything runs in a single container -- no external database or MQTT broker required.
   </Overview>
   <Category>Tools: HomeAutomation:</Category>
   <WebUI>http://[IP]:[PORT:80]/</WebUI>
@@ -45,13 +52,13 @@
   <Config
     Name="MQTT Port"
     Target="1883"
-    Default="1883"
+    Default=""
     Mode="tcp"
-    Description="Host port for the internal Mosquitto MQTT broker. Only expose if you need direct MQTT access from other devices."
+    Description="Host port for the internal Mosquitto MQTT broker. Leave blank (default) to keep the broker LAN-private. Only set if you need direct MQTT access from other devices, such as Home Assistant (see documentation/HOME_ASSISTANT.md)."
     Type="Port"
     Display="advanced"
     Required="false"
-    Mask="false">1883</Config>
+    Mask="false"></Config>
 
   <!-- ── Volumes ────────────────────────────────────────────────────────────── -->
 
@@ -95,7 +102,7 @@
     Target="SAIC_REGION"
     Default="eu"
     Mode=""
-    Description="Region your vehicle is registered in: eu (Europe), cn (China), or row (Rest of World)."
+    Description="Region your vehicle is registered in: eu (Europe, default), au (Australia/New Zealand), or tr (Turkiye). Automatically mapped to the right API endpoint."
     Type="Variable"
     Display="always"
     Required="true"
@@ -106,21 +113,10 @@
     Target="POSTGRES_PASSWORD"
     Default=""
     Mode=""
-    Description="Password for the embedded PostgreSQL database. Set a strong random value -- you will not need to enter this again. Generate one with: openssl rand -base64 24"
+    Description="Password for the embedded PostgreSQL database. If left empty a strong random password is auto-generated on first start and saved to /data/.postgres_password inside the data directory. Set explicitly only if you need to connect to the database directly with external tools. Generate with: openssl rand -base64 24"
     Type="Variable"
-    Display="always"
-    Required="true"
-    Mask="true"/>
-
-  <Config
-    Name="JWT Secret"
-    Target="JWT_SECRET"
-    Default=""
-    Mode=""
-    Description="Secret used to sign login tokens. Must be at least 32 characters. Generate with: openssl rand -base64 32"
-    Type="Variable"
-    Display="always"
-    Required="true"
+    Display="advanced"
+    Required="false"
     Mask="true"/>
 
   <Config
@@ -134,7 +130,242 @@
     Required="true"
     Mask="false">http://localhost:8080</Config>
 
+  <!-- ── Single sign-on (OpenID Connect) ────────────────────────────────────── -->
+
+  <Config
+    Name="OIDC Issuer URL"
+    Target="OIDC_AUTHORITY"
+    Default=""
+    Mode=""
+    Description="Optional. Issuer URL of your identity provider (Authentik, Authelia, Keycloak, Pocket ID, ...) -- the URL its /.well-known/openid-configuration sits under. Setting this switches GarageStack to single sign-on and disables the built-in password login. Register the redirect URI &lt;App URL&gt;/api/auth/oidc/callback at your provider. See documentation/AUTHENTICATION.md."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="OIDC Client ID"
+    Target="OIDC_CLIENT_ID"
+    Default=""
+    Mode=""
+    Description="Client ID issued by your identity provider for GarageStack. Required when OIDC Issuer URL is set."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="OIDC Client Secret"
+    Target="OIDC_CLIENT_SECRET"
+    Default=""
+    Mode=""
+    Description="Client secret issued by your identity provider. Leave empty for a public client that uses PKCE only."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="OIDC Allowed Groups"
+    Target="OIDC_ALLOWED_GROUPS"
+    Default=""
+    Mode=""
+    Description="Comma-separated groups allowed to sign in, e.g. garagestack-users. Leave empty only if your provider already restricts who can use this application -- otherwise every account it accepts can sign in and control your car."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="OIDC Allowed Emails"
+    Target="OIDC_ALLOWED_EMAILS"
+    Default=""
+    Mode=""
+    Description="Comma-separated email addresses allowed to sign in. Useful with providers that have no groups. Works alongside OIDC Allowed Groups -- a match on either list grants access."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="OIDC Provider Name"
+    Target="OIDC_PROVIDER_NAME"
+    Default="SSO"
+    Mode=""
+    Description="Name shown on the sign-in button, e.g. Authentik."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">SSO</Config>
+
+  <Config
+    Name="Keep Password Login With OIDC"
+    Target="AUTH_PASSWORD_LOGIN_ENABLED"
+    Default=""
+    Mode=""
+    Description="Set to true to keep the built-in username/password login available alongside single sign-on, e.g. as break-glass access for when your identity provider is down. Leave empty to switch it off automatically once OIDC is configured. Set AUTH_USERNAME and AUTH_PASSWORD to a strong dedicated password if you enable this."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Login Username"
+    Target="AUTH_USERNAME"
+    Default=""
+    Mode=""
+    Description="Username for the built-in web login. Leave empty to sign in with the MG iSmart email above."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Login Password"
+    Target="AUTH_PASSWORD"
+    Default=""
+    Mode=""
+    Description="Password for the built-in web login. Leave empty to sign in with the MG iSmart password above. Set a strong dedicated password when the login stays enabled alongside single sign-on."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="Secure Session Cookie"
+    Target="AUTH_COOKIE_SECURE"
+    Default="false"
+    Mode=""
+    Description="Set to true when GarageStack is served over HTTPS (behind a TLS-terminating reverse proxy) so the session cookie is never sent over plain HTTP. Leave false for a plain-HTTP LAN install, or you will not be able to log in."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="Session Lifetime (hours)"
+    Target="AUTH_SESSION_LIFETIME_HOURS"
+    Default="168"
+    Mode=""
+    Description="How long a single sign-on session lasts before the identity provider is consulted again. Signing in again is usually invisible while the provider's own session is still valid."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">168</Config>
+
+  <Config
+    Name="OIDC Auto Login"
+    Target="OIDC_AUTO_LOGIN"
+    Default="false"
+    Mode=""
+    Description="Set to true to skip the GarageStack login page and go straight to your identity provider."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">false</Config>
+
+  <Config
+    Name="OIDC Scopes"
+    Target="OIDC_SCOPES"
+    Default="openid profile email"
+    Mode=""
+    Description="Scopes requested from the identity provider. Add the scope that carries group membership if your provider needs one for OIDC Allowed Groups."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">openid profile email</Config>
+
+  <Config
+    Name="OIDC Groups Claim"
+    Target="OIDC_GROUPS_CLAIM"
+    Default="groups"
+    Mode=""
+    Description="Name of the token claim that OIDC Allowed Groups is matched against. Provider-specific; groups covers most."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">groups</Config>
+
+  <Config
+    Name="OIDC Redirect URI"
+    Target="OIDC_REDIRECT_URI"
+    Default=""
+    Mode=""
+    Description="Only needed when GarageStack cannot work out its own public URL, e.g. behind several chained reverse proxies. Must be &lt;App URL&gt;/api/auth/oidc/callback. Leave empty otherwise."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="OIDC Require HTTPS Metadata"
+    Target="OIDC_REQUIRE_HTTPS_METADATA"
+    Default="true"
+    Mode=""
+    Description="Set to false only for an identity provider served over plain HTTP on your LAN."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <!-- ── Home Assistant ─────────────────────────────────────────────────────── -->
+
+  <Config
+    Name="Home Assistant MQTT Username"
+    Target="HA_MQTT_USERNAME"
+    Default=""
+    Mode=""
+    Description="Optional. Creates a broker login for the Home Assistant MQTT integration, limited to the car's topics. The car then appears in Home Assistant automatically. Also set the MQTT Port above so Home Assistant can reach the broker. See documentation/HOME_ASSISTANT.md."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"/>
+
+  <Config
+    Name="Home Assistant MQTT Password"
+    Target="HA_MQTT_PASSWORD"
+    Default=""
+    Mode=""
+    Description="Password for the Home Assistant MQTT login. Required when Home Assistant MQTT Username is set. Generate with: openssl rand -hex 32"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
   <!-- ── Optional variables ─────────────────────────────────────────────────── -->
+
+  <Config
+    Name="Internal MQTT Username"
+    Target="MQTT_BROKER_USERNAME"
+    Default="garagestack"
+    Mode=""
+    Description="Login the SAIC gateway, API and Worker use on the bundled Mosquitto broker. Only relevant if you connect other MQTT clients to the exposed MQTT port."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">garagestack</Config>
+
+  <Config
+    Name="Internal MQTT Password"
+    Target="MQTT_BROKER_PASSWORD"
+    Default=""
+    Mode=""
+    Description="Password for the internal broker login. Leave empty to have a random one generated at every start (fine unless external MQTT clients need a stable password). Generate with: openssl rand -hex 32"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="MG API Endpoint Override"
+    Target="SAIC_REST_URI"
+    Default=""
+    Mode=""
+    Description="Optional. Only needed if your region isn't eu, au, or tr -- set directly to your gateway's endpoint."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
 
   <Config
     Name="VAPID Public Key"
@@ -157,6 +388,149 @@
     Display="advanced"
     Required="false"
     Mask="true"/>
+
+  <Config
+    Name="Notification Language"
+    Target="NOTIFICATION_LANGUAGE"
+    Default="en"
+    Mode=""
+    Description="Language of the push notification texts (Engine started, Door left open, ...): en or nl. Notifications are written by the background worker, which has no browser to take a language from, so this is set per deployment."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">en</Config>
+
+  <Config
+    Name="Homepage Widget API Key"
+    Target="WIDGET_API_KEY"
+    Default=""
+    Mode=""
+    Description="Static API key for the read-only /api/widget/{vin}/status endpoint used by the gethomepage.dev Custom API widget. Leave empty to keep the endpoint disabled. Generate with: openssl rand -base64 32"
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="Open Charge Map API Key"
+    Target="OPENCHARGEMAP_API_KEY"
+    Default=""
+    Mode=""
+    Description="API key for the EV charging station overlay on the map. Free to obtain at https://openchargemap.org/site/develop -- create an account and generate a key. Leave empty to disable the charging station feature."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"/>
+
+  <Config
+    Name="Overpass API Base URL"
+    Target="OVERPASS__BASEURL"
+    Default="https://overpass-api.de/api/interpreter"
+    Mode=""
+    Description="Overpass API endpoint used for fuel station and motorway service area overlays. Defaults to the public endpoint -- no API key required. Change this only if you self-host an Overpass instance."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">https://overpass-api.de/api/interpreter</Config>
+
+  <Config
+    Name="Speed Camera Layer Enabled"
+    Target="SPEEDCAMERAS__ENABLED"
+    Default="true"
+    Mode=""
+    Description="Offers a map layer of the speed cameras mapped in OpenStreetMap. No API key required, and the layer stays off until you switch it on in the map's layer panel. Set to false to remove it from the deployment entirely -- do that where showing a driver where the cameras are is restricted, France and Germany among others."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <Config
+    Name="Reverse Geocoding Enabled"
+    Target="GEOCODING__ENABLED"
+    Default="true"
+    Mode=""
+    Description="Turns coordinates into place names via OpenStreetMap Nominatim: city names in the trip list and the street the car is parked in. No API key required, and answers are cached for 90 days. Set to false to keep coordinates off a third-party service -- the trip list then shows dates."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <Config
+    Name="Nominatim Base URL"
+    Target="GEOCODING__BASEURL"
+    Default="https://nominatim.openstreetmap.org"
+    Mode=""
+    Description="Nominatim endpoint used for those place names. Defaults to the public instance -- no API key required. Change this only if you self-host Nominatim."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">https://nominatim.openstreetmap.org</Config>
+
+  <Config
+    Name="Map Matching Enabled"
+    Target="MAPMATCHING__ENABLED"
+    Default="true"
+    Mode=""
+    Description="Draws a selected trip along the roads it was driven on, snapped onto OpenStreetMap by Valhalla, instead of in straight lines between GPS fixes. No API key required, and snapped trips are cached for 30 days. Set to false to keep trip geometry off a third-party service -- trips are then drawn from their raw fixes."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">true</Config>
+
+  <Config
+    Name="Valhalla Base URL"
+    Target="MAPMATCHING__BASEURL"
+    Default="https://valhalla1.openstreetmap.de"
+    Mode=""
+    Description="Valhalla endpoint used for that snapping. Defaults to the public instance -- no API key required. Change this only if you self-host Valhalla."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">https://valhalla1.openstreetmap.de</Config>
+
+  <Config
+    Name="Tyre Pressure - Low (bar)"
+    Target="TYRE_PRESSURE_LOW_BAR"
+    Default="2.2"
+    Mode=""
+    Description="Tyre pressure (bar) below which a tyre is shown red / triggers a low-pressure alert. Override to match your vehicle's placarded pressure."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">2.2</Config>
+
+  <Config
+    Name="Tyre Pressure - Good (bar)"
+    Target="TYRE_PRESSURE_GOOD_BAR"
+    Default="2.6"
+    Mode=""
+    Description="Tyre pressure (bar) at and above which a tyre is shown green (healthy). Below this and above the low threshold, it is shown orange."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">2.6</Config>
+
+  <Config
+    Name="Tyre Pressure - High (bar)"
+    Target="TYRE_PRESSURE_HIGH_BAR"
+    Default="3.2"
+    Mode=""
+    Description="Tyre pressure (bar) above which a tyre is shown red / triggers an over-inflation alert."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">3.2</Config>
+
+  <Config
+    Name="HV Battery Capacity (kWh)"
+    Target="HV_BATTERY_CAPACITY_KWH"
+    Default=""
+    Mode=""
+    Description="Usable capacity of the traction battery, in kWh. The MQTT gateway assumes an EV-sized pack rather than reading the real one, so the kWh it reports are far too large on a plain hybrid (an MG HS Hybrid+ carries 1.83 kWh and is reported as 72.5). Leave empty to keep the gateway's figure on a BEV or PHEV and show charge as a percentage only on a hybrid."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
 
   <Config
     Name="Database Name"
