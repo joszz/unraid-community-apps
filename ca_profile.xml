@@ -1,8 +1,8 @@
 <CommunityApplications>
   <Profile>
-    GarageStack is an open-source vehicle monitoring dashboard for MG / SAIC electric, plug-in hybrid, and hybrid vehicles. It connects to the MG iSmart cloud and stores all data locally in a single container -- no external database or MQTT broker required.
+    GarageStack is an open-source, self-hosted dashboard for MG / SAIC electric, plug-in hybrid and hybrid cars. It connects to the MG iSmart cloud and stores all data locally in a single container: no external database or MQTT broker required.
 
-    Features: live dashboard and remote commands, energy, fuel and efficiency statistics, a trip log with CSV export, a map with trip history, heatmap and OpenStreetMap overlays, Web Push notifications, single sign-on, and Home Assistant integration.
+    Features: a live dashboard and remote commands, climate and charging schedules, energy, fuel and efficiency statistics over any period, a trip log with automatic commutes and CSV export, maintenance reminders, a map with trip history, heatmaps and OpenStreetMap overlays (including speed cameras), push notifications, single sign-on, and Home Assistant integration.
 
     Support: https://github.com/joszz/garagestack/issues
   </Profile>

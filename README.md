@@ -6,7 +6,7 @@ This repository contains the Unraid Community Apps templates for apps maintained
 
 ### GarageStack
 
-An open-source vehicle monitoring dashboard for MG / SAIC electric, plug-in hybrid, and hybrid vehicles.
+An open-source, self-hosted dashboard for MG / SAIC electric, plug-in hybrid and hybrid cars.
 
 - **Source:** [github.com/joszz/garagestack](https://github.com/joszz/garagestack)
 - **Issues / support:** [github.com/joszz/garagestack/issues](https://github.com/joszz/garagestack/issues)
